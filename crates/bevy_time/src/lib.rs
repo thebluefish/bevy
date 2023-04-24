@@ -82,7 +82,7 @@ pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
 
 /// The system used to update the [`Time`] used by app logic. If there is a render world the time is sent from
 /// there to this system through channels. Otherwise the time is updated in this system.
-fn time_system(
+pub fn time_system(
     mut time: ResMut<Time>,
     update_strategy: Res<TimeUpdateStrategy>,
     time_recv: Option<Res<TimeReceiver>>,
