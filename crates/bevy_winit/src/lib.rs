@@ -832,8 +832,16 @@ pub fn winit_runner(mut app: App) {
     };
 
     trace!("starting winit event loop");
-    if let Err(err) = event_loop.run(event_handler) {
-        error!("winit event loop returned an error: {err}");
+    #[cfg(target_arch = "wasm32")]
+    {
+        use winit::platform::web::EventLoopExtWebSys;
+        event_loop.spawn(event_handler);
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        if let Err(err) = event_loop.run(event_handler) {
+            error!("winit event loop returned an error: {err}");
+        }
     }
 }
 
