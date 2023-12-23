@@ -232,7 +232,16 @@ fn run<F, T>(event_loop: EventLoop<T>, event_handler: F) -> !
 where
     F: 'static + FnMut(Event<'_, T>, &EventLoopWindowTarget<T>, &mut ControlFlow),
 {
-    event_loop.run(event_handler)
+    #[cfg(target_arch = "wasm32")]
+    {
+        use winit::platform::web::EventLoopExtWebSys;
+        event_loop.spawn(event_handler);
+        wasm_bindgen::throw_str("Using exceptions to end, this isn't actually an error");
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        event_loop.run(event_handler)
+    }
 }
 
 #[cfg(any(
