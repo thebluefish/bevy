@@ -380,23 +380,8 @@ fn handle_winit_event(
             }
 
             if should_update {
-                // per winit's docs on [Window::is_visible](https://docs.rs/winit/latest/winit/window/struct.Window.html#method.is_visible),
-                // we cannot use the visibility to drive rendering on:
-                // - web
-                // - ios
-                // - android
-                // - x11
-                // - wayland
-                let visible = !cfg!(any(
-                    target_arch = "wasm32",
-                    target_os = "android",
-                    target_os = "ios",
-                    all(
-                        target_os = "linux",
-                        any(feature = "x11", feature = "wayland")
-                    )
-                )) && windows.iter().any(|window| window.visible);
                 let (_, winit_windows, _, _) = event_writer_system_state.get_mut(&mut app.world);
+                let visible = winit_windows.windows.values().any(|window| window.is_visible().unwrap_or(false));
                 if visible && runner_state.active != ActiveState::WillSuspend {
                     for window in winit_windows.windows.values() {
                         window.request_redraw();
@@ -413,14 +398,24 @@ fn handle_winit_event(
                         app_exit_event_reader,
                         redraw_event_reader,
                     );
-                    // if runner_state.active != ActiveState::Suspended {
-                    //     event_loop.set_control_flow(ControlFlow::Poll);
-                    // }
+                    // per winit's docs on [Window::is_visible](https://docs.rs/winit/latest/winit/window/struct.Window.html#method.is_visible),
+                    // we cannot use the visibility to drive rendering on these platforms
+                    // so we cannot discern whether to beneficially use `Poll` or not?
+                    if runner_state.active != ActiveState::Suspended && !cfg!(any(
+                        target_arch = "wasm32",
+                        target_os = "android",
+                        target_os = "ios",
+                        all(
+                            target_os = "linux",
+                            any(feature = "x11", feature = "wayland")
+                        )
+                    )) {
+                        event_loop.set_control_flow(ControlFlow::Poll);
+                    }
                 }
             }
         }
         Event::NewEvents(cause) => {
-            info!("cause {cause:?}");
             runner_state.wait_elapsed = match cause {
                 StartCause::WaitCancelled {
                     requested_resume: Some(resume),
@@ -631,7 +626,6 @@ fn handle_winit_event(
                     app.send_event(WindowDestroyed { window });
                 }
                 WindowEvent::RedrawRequested => {
-                    info!("RedrawRequested");
                     run_app_update_if_should(
                         runner_state,
                         app,
@@ -766,7 +760,6 @@ fn run_app_update_if_should(
                 event_loop.set_control_flow(ControlFlow::Wait);
             }
             UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
-                info!("wait for {}ms", wait.as_millis());
                 // TODO(bug): this is unexpected behavior.
                 // When Reactive, user expects bevy to actually wait that amount of time,
                 // and not potentially infinitely depending on plateform specifics (which this does)
